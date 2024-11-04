@@ -2,6 +2,54 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
+interface PinterestBoard {
+  id: string;
+  name: string;
+  description: string;
+  owner: {
+    username: string;
+  };
+  privacy: string;
+  collaborator_count: number;
+  follower_count: number;
+  pin_count: number;
+  created_at: string;
+  board_pins_modified_at: string;
+  media?: {
+    pin_thumbnail_urls?: string[];
+    image_cover_url?: string;
+  };
+}
+
+interface PinterestPin {
+  id: string;
+  media: {
+    media_type: string;
+    images: {
+      "150x150": {
+        url: string;
+        width: number;
+        height: number;
+      };
+      "400x300": {
+        url: string;
+        width: number;
+        height: number;
+      };
+      "600x": {
+        url: string;
+        width: number;
+        height: number;
+      };
+    };
+  };
+  title?: string;
+  description?: string;
+  link?: string;
+  created_at: string;
+  board_id: string;
+}
+
 export async function GET() {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get("pinterest_token")?.value;
@@ -11,7 +59,6 @@ export async function GET() {
   }
 
   try {
-    // First fetch boards
     const boardsResponse = await fetch(
       "https://api.pinterest.com/v5/boards?page_size=25&include_empty=true",
       {
@@ -34,9 +81,8 @@ export async function GET() {
     const boardsData = await boardsResponse.json();
     console.log("Boards data:", boardsData);
 
-    // Then fetch pins for each board
     const boardsWithPins = await Promise.all(
-      boardsData.items.map(async (board: any) => {
+      boardsData.items.map(async (board: PinterestBoard) => {
         try {
           console.log(`Fetching pins for board: ${board.id}`);
           const pinsResponse = await fetch(
@@ -50,7 +96,8 @@ export async function GET() {
           );
 
           if (pinsResponse.ok) {
-            const pinsData = await pinsResponse.json();
+            const pinsData: { items: PinterestPin[] } =
+              await pinsResponse.json();
             console.log(`Pins data for board ${board.id}:`, pinsData);
             console.log("Sample pin data structure:", pinsData.items[0]);
             return {
