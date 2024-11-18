@@ -26,7 +26,7 @@ class ImageRequest(BaseModel):
 
 def verify_env_vars() -> None:
     """Verify required environment variables are set"""
-    required_vars = ["OPENAI_API_KEY", "PORT"]  # Add PORT to required vars
+    required_vars = ["OPENAI_API_KEY", "PORT"]
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     if missing_vars:
         raise ValueError(f"Missing required environment variables: {missing_vars}")
@@ -109,10 +109,31 @@ app.add_middleware(
 )
 
 
+@app.get("/")
+async def root():
+    """Root endpoint with API information"""
+    return {
+        "status": "ok",
+        "api_version": "1.0",
+        "endpoints": {
+            "root": "/",
+            "health": "/health",
+            "test_images": "/test-images",
+            "process_image": "/process-image",
+        },
+        "documentation": "/docs",
+    }
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "healthy", "test_images_count": len(app.state.test_images)}
+    return {
+        "status": "healthy",
+        "test_images_count": len(app.state.test_images),
+        "environment": os.getenv("ENVIRONMENT", "production"),
+        "base_url": os.getenv("RENDER_EXTERNAL_URL", "http://localhost:8000"),
+    }
 
 
 @app.get("/test-images")
@@ -155,11 +176,20 @@ async def process_image(request: ImageRequest):
         )
 
         for key, image_path in matches.items():
-            # Get just the filename from the path
-            filename = os.path.basename(image_path)
-            # Create a URL for the image
-            image_url = f"{base_url}/{filename}"
-            matches_with_urls[key] = image_url
+            # Extract the number from the match path
+            import re
+
+            if match := re.search(r"mask_(\d+)", image_path):
+                number = match.group(1)
+                # Construct the correct filename
+                image_url = f"{base_url}/image_with_mask_{number}.png"
+                matches_with_urls[key] = image_url
+            else:
+                logger.warning(f"Could not parse image number from path: {image_path}")
+                # Fallback to original filename if parsing fails
+                filename = os.path.basename(image_path)
+                image_url = f"{base_url}/{filename}"
+                matches_with_urls[key] = image_url
 
         logger.info("Image processing completed successfully")
         return {"matches": matches_with_urls}
