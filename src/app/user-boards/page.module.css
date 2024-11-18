@@ -6,35 +6,62 @@
 }
 
 .title {
+  font-size: 28px;
+  font-weight: bold;
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .loading,
 .error {
   text-align: center;
-  padding: 20px;
+  padding: 40px;
+  font-size: 18px;
 }
 
-.board {
-  margin-bottom: 30px;
-  padding: 20px;
+.error {
+  color: #cc0000;
+}
+
+.boardsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.boardCard {
+  background: white;
   border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  cursor: pointer;
+  transition: box-shadow 0.2s;
 }
 
-.pins {
-  display: flex;
-  overflow-x: auto;
-  gap: 10px;
-  padding: 10px 0;
+.boardCard:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
-.pin {
-  flex: none;
-  width: 100px;
-  height: 100px;
+.boardTitle {
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 8px;
 }
 
-.pin img {
-  object-fit: cover;
+.pinCount {
+  color: #666;
+}
+
+.backButton {
+  background: none;
+  border: none;
+  color: #0066cc;
+  cursor: pointer;
+  padding: 8px 0;
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+.backButton:hover {
+  text-decoration: underline;
 }

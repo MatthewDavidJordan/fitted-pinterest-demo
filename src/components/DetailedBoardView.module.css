@@ -1,0 +1,157 @@
+/* components/DetailedBoardView.module.css */
+.boardCard {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  margin: 20px auto;
+  max-width: 1200px;
+  width: 100%;
+}
+
+.boardHeader {
+  margin-bottom: 20px;
+}
+
+.boardTitle {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.boardDescription {
+  color: #666;
+}
+
+.pinsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.pinItem {
+  position: relative;
+  cursor: pointer;
+  aspect-ratio: 1;
+}
+
+.pinItem img {
+  border-radius: 8px;
+  transition: transform 0.2s;
+}
+
+.pinItem:hover img {
+  transform: scale(1.05);
+}
+
+.selectedPin {
+  border: 2px solid #0066cc;
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modalContent {
+  background: white;
+  padding: 24px;
+  border-radius: 8px;
+  max-width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  width: 600px;
+}
+
+.closeButton {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+}
+
+.closeButton:hover {
+  color: #000;
+}
+
+.selectedPinImage {
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+  margin: 0 auto 20px;
+  display: block;
+}
+
+.analyzeButton {
+  background: #0066cc;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+  font-size: 16px;
+  margin: 16px 0;
+}
+
+.analyzeButton:hover {
+  background: #0052a3;
+}
+
+.analyzeButton:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.error {
+  color: #cc0000;
+  text-align: center;
+  margin: 16px 0;
+}
+
+.results {
+  margin-top: 20px;
+}
+
+.results h3 {
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.resultsList {
+  list-style-type: disc;
+  padding-left: 20px;
+}
+
+.resultsList li {
+  margin-bottom: 8px;
+}
+
+.loadingSpinner {
+  display: inline-block;
+  margin-right: 8px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
