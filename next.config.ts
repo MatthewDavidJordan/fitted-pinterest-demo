@@ -11,6 +11,11 @@ const nextConfig = {
       },
       {
         protocol: "https",
+        hostname: "*.render.com",
+        pathname: "/test-images/**",
+      },
+      {
+        protocol: "https",
         hostname: "*.pinimg.com",
       },
     ],
