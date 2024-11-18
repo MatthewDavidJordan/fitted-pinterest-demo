@@ -1,11 +1,7 @@
 // app/api/analyze-pin/route.ts
 import { NextResponse } from "next/server";
 
-interface AnalysisResponse {
-  matches: {
-    [key: string]: string; // URLs to the matching images
-  };
-}
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export async function POST(request: Request) {
   try {
@@ -18,7 +14,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const response = await fetch("http://localhost:8000/process-image", {
+    const response = await fetch(`${API_URL}/process-image`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -31,7 +27,7 @@ export async function POST(request: Request) {
       throw new Error(error.detail || "Failed to analyze image");
     }
 
-    const data: AnalysisResponse = await response.json();
+    const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
     console.error("Error analyzing pin:", error);
