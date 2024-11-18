@@ -1,6 +1,12 @@
 // app/api/analyze-pin/route.ts
 import { NextResponse } from "next/server";
 
+interface AnalysisResponse {
+  matches: {
+    [key: string]: string; // URLs to the matching images
+  };
+}
+
 export async function POST(request: Request) {
   try {
     const { imageUrl } = await request.json();
@@ -12,7 +18,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Call the Python FastAPI backend
     const response = await fetch("http://localhost:8000/process-image", {
       method: "POST",
       headers: {
@@ -26,7 +31,7 @@ export async function POST(request: Request) {
       throw new Error(error.detail || "Failed to analyze image");
     }
 
-    const data = await response.json();
+    const data: AnalysisResponse = await response.json();
     return NextResponse.json(data);
   } catch (error) {
     console.error("Error analyzing pin:", error);

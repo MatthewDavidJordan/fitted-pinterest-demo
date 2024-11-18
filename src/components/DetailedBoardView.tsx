@@ -1,3 +1,4 @@
+// components/DetailedBoardView.tsx
 import React, { useState } from "react";
 import Image from "next/image";
 import styles from "./DetailedBoardView.module.css";
@@ -27,11 +28,7 @@ interface Board {
 
 interface Analysis {
   matches: {
-    match1: string;
-    match2: string;
-    match3: string;
-    match4: string;
-    match5: string;
+    [key: string]: string; // URL to matching image
   };
 }
 
@@ -152,11 +149,22 @@ const DetailedBoardView = ({ board }: { board: Board }) => {
             {analysis && (
               <div className={styles.results}>
                 <h3>Similar Images:</h3>
-                <ul className={styles.resultsList}>
-                  {Object.entries(analysis.matches).map(([key, value]) => (
-                    <li key={key}>{value}</li>
+                <div className={styles.matchedImagesGrid}>
+                  {Object.entries(analysis.matches).map(([key, imageUrl]) => (
+                    <div key={key} className={styles.matchedImageContainer}>
+                      <Image
+                        src={imageUrl}
+                        alt={`Match ${key}`}
+                        width={200}
+                        height={200}
+                        className={styles.matchedImage}
+                      />
+                      <p className={styles.matchLabel}>
+                        Match {key.replace("match", "")}
+                      </p>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
             )}
           </div>
