@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import DetailedBoardView from "../../components/DetailedBoardView";
 import styles from "./page.module.css";
 
 interface Pin {
@@ -12,6 +12,9 @@ interface Pin {
     media_type: string;
     images: {
       "150x150": {
+        url: string;
+      };
+      "400x300": {
         url: string;
       };
     };
@@ -32,6 +35,7 @@ interface Board {
 
 export default function UserBoardsPage() {
   const [boards, setBoards] = useState<Board[]>([]);
+  const [selectedBoard, setSelectedBoard] = useState<Board | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -59,35 +63,35 @@ export default function UserBoardsPage() {
     fetchBoards();
   }, [router]);
 
-  const getPinImageUrl = (pin: Pin) => {
-    return pin.media?.images?.["150x150"]?.url;
-  };
-
   if (loading) return <div className={styles.loading}>Loading...</div>;
   if (error) return <div className={styles.error}>Error: {error}</div>;
+
+  if (selectedBoard) {
+    return (
+      <div className={styles.container}>
+        <button
+          onClick={() => setSelectedBoard(null)}
+          className={styles.backButton}
+        >
+          ← Back to Boards
+        </button>
+        <DetailedBoardView board={selectedBoard} />
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>
       <h1 className={styles.title}>Your Pinterest Boards</h1>
-      <div className={styles.boards}>
+      <div className={styles.boardsGrid}>
         {boards.map((board) => (
-          <div key={board.id} className={styles.board}>
-            <h2>{board.name}</h2>
-            <div className={styles.pins}>
-              {board.pins?.map((pin) => {
-                const imageUrl = getPinImageUrl(pin);
-                return imageUrl ? (
-                  <div key={pin.id} className={styles.pin}>
-                    <Image
-                      src={imageUrl}
-                      alt={pin.title || "Pinterest Pin"}
-                      width={100}
-                      height={100}
-                    />
-                  </div>
-                ) : null;
-              })}
-            </div>
+          <div
+            key={board.id}
+            className={styles.boardCard}
+            onClick={() => setSelectedBoard(board)}
+          >
+            <h2 className={styles.boardTitle}>{board.name}</h2>
+            <p className={styles.pinCount}>{board.pins?.length || 0} pins</p>
           </div>
         ))}
       </div>
