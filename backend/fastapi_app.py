@@ -9,7 +9,6 @@ import requests
 import logging
 from typing import Dict, Any, List
 from dotenv import load_dotenv
-from main import main as process_images
 
 # Configure logging
 logging.basicConfig(
@@ -27,7 +26,7 @@ class ImageRequest(BaseModel):
 
 def verify_env_vars() -> None:
     """Verify required environment variables are set"""
-    required_vars = ["OPENAI_API_KEY"]
+    required_vars = ["OPENAI_API_KEY", "PORT"]  # Add PORT to required vars
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     if missing_vars:
         raise ValueError(f"Missing required environment variables: {missing_vars}")
@@ -62,6 +61,20 @@ def download_image(url: str) -> bytes:
         )
 
 
+# Lazy loading of ML models
+_model = None
+
+
+def get_model():
+    """Lazy load the ML model only when needed"""
+    global _model
+    if _model is None:
+        from main import process_images as model
+
+        _model = model
+    return _model
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events"""
@@ -77,6 +90,8 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown
     logger.info("Shutting down FastAPI server")
+    global _model
+    _model = None  # Clear model from memory
 
 
 app = FastAPI(title="Image Analysis API", lifespan=lifespan)
@@ -117,9 +132,13 @@ async def process_image(request: ImageRequest):
                 status_code=503, detail="No test images available for comparison"
             )
 
+        # Download and process the image
         image_data = download_image(str(request.image_url))
+
+        # Get model and process
+        model = get_model()
         logger.info("Processing image through main pipeline")
-        matches = process_images(app.state.test_images, image_data)
+        matches = model(app.state.test_images, image_data)
 
         if not isinstance(matches, dict):
             logger.error(f"Invalid matches format received: {matches}")
@@ -128,24 +147,19 @@ async def process_image(request: ImageRequest):
                 detail="Invalid response format from processing pipeline",
             )
 
-        # Convert file paths to URLs, removing 'data_' prefix if present
+        # Convert file paths to URLs
         matches_with_urls = {}
-        base_url = "http://localhost:8000/test-images"
-        for key, image_path in matches.items():
-            # Extract the number from the match path
-            import re
+        # Use environment variable for base URL, fallback to localhost
+        base_url = (
+            os.getenv("RENDER_EXTERNAL_URL", "http://localhost:8000") + "/test-images"
+        )
 
-            if match := re.search(r"mask_(\d+)", image_path):
-                number = match.group(1)
-                # Construct the correct filename
-                image_url = f"{base_url}/image_with_mask_{number}.png"
-                matches_with_urls[key] = image_url
-            else:
-                logger.warning(f"Could not parse image number from path: {image_path}")
-                # Fallback to original filename if parsing fails
-                filename = os.path.basename(image_path)
-                image_url = f"{base_url}/{filename}"
-                matches_with_urls[key] = image_url
+        for key, image_path in matches.items():
+            # Get just the filename from the path
+            filename = os.path.basename(image_path)
+            # Create a URL for the image
+            image_url = f"{base_url}/{filename}"
+            matches_with_urls[key] = image_url
 
         logger.info("Image processing completed successfully")
         return {"matches": matches_with_urls}
@@ -160,4 +174,5 @@ async def process_image(request: ImageRequest):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
