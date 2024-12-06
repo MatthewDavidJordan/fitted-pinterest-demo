@@ -19,6 +19,10 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
+# Set default PORT if not in environment
+if "PORT" not in os.environ:
+    os.environ["PORT"] = "8000"
+
 
 class ImageRequest(BaseModel):
     image_url: HttpUrl
@@ -26,7 +30,7 @@ class ImageRequest(BaseModel):
 
 def verify_env_vars() -> None:
     """Verify required environment variables are set"""
-    required_vars = ["OPENAI_API_KEY", "PORT"]
+    required_vars = ["OPENAI_API_KEY"]
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     if missing_vars:
         raise ValueError(f"Missing required environment variables: {missing_vars}")
@@ -37,10 +41,12 @@ def check_test_images() -> List[str]:
     Check which test images are available
     Returns list of available test image paths
     """
-    test_images = [f"./test_images/image_with_mask_{i}.png" for i in range(1, 16)]
+    test_images = [f"./test_images/image_with_mask_{i}.png" for i in range(1, 31)]
     available_images = [img for img in test_images if os.path.exists(img)]
     if not available_images:
         logger.warning("No test images found")
+        # Create test_images directory if it doesn't exist
+        os.makedirs("test_images", exist_ok=True)
     else:
         logger.info(f"Found {len(available_images)} test images")
     return available_images
@@ -69,15 +75,25 @@ def get_model():
     """Lazy load the ML model only when needed"""
     global _model
     if _model is None:
-        from main import process_images as model
+        try:
+            from main import process_images
 
-        _model = model
+            _model = process_images
+            logger.info("Successfully loaded image processing model")
+        except Exception as e:
+            logger.error(f"Failed to load model: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail="Failed to load image processing model"
+            )
     return _model
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events"""
+    # Initialize state
+    app.state.test_images = []
+
     # Startup
     logger.info("Starting up FastAPI server")
     try:
@@ -87,7 +103,11 @@ async def lifespan(app: FastAPI):
         logger.info("Server startup completed successfully")
     except Exception as e:
         logger.error(f"Startup check failed: {str(e)}")
+        # Still set test_images even if empty
+        app.state.test_images = []
+
     yield
+
     # Shutdown
     logger.info("Shutting down FastAPI server")
     global _model
@@ -96,8 +116,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Image Analysis API", lifespan=lifespan)
 
-# Mount the test_images directory
-app.mount("/test-images", StaticFiles(directory="test_images"), name="test_images")
+# Mount the test_images directory if it exists
+if os.path.exists("test_images"):
+    app.mount("/test-images", StaticFiles(directory="test_images"), name="test_images")
 
 # Configure CORS
 app.add_middleware(
@@ -131,8 +152,9 @@ async def health_check():
     return {
         "status": "healthy",
         "test_images_count": len(app.state.test_images),
-        "environment": os.getenv("ENVIRONMENT", "production"),
+        "environment": os.getenv("ENVIRONMENT", "development"),
         "base_url": os.getenv("RENDER_EXTERNAL_URL", "http://localhost:8000"),
+        "port": os.getenv("PORT", "8000"),
     }
 
 
@@ -204,5 +226,5 @@ async def process_image(request: ImageRequest):
 if __name__ == "__main__":
     import uvicorn
 
-    port = int(os.getenv("PORT", 8000))
+    port = int(os.getenv("PORT", "8000"))
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")

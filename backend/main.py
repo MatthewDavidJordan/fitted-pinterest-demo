@@ -1,3 +1,4 @@
+# main.py
 import cv2
 import json
 import os
@@ -38,7 +39,6 @@ def get_chatgpt_response(prompt, json_data):
 
     client = openai.OpenAI()
     try:
-        # Update the system message to enforce JSON-only response
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
@@ -58,12 +58,10 @@ def get_chatgpt_response(prompt, json_data):
         response_text = response.choices[0].message.content
         print(f"GPT raw response: {response_text}")
 
-        # Try to find JSON in the response if it's wrapped in other text
+        # Try to find JSON in the response
         try:
-            # First try to parse as-is
             return json.loads(response_text)
         except json.JSONDecodeError:
-            # Try to extract JSON from between backticks or braces
             import re
 
             json_match = re.search(r"({[\s\S]*})", response_text)
@@ -81,15 +79,15 @@ def get_chatgpt_response(prompt, json_data):
         return "error"
 
 
-def process_image(image_name, img):
+def process_hsv_data(image_name, img):
     print(f"\nProcessing image: {image_name}")
-    img = cv2.resize(img, (50, 50))  # Reduced from 100x100 to 50x50
+    img = cv2.resize(img, (50, 50))
     hsv_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     hsv_json = []
 
-    # Sample every other pixel to reduce data
-    for row in hsv_img[::2]:  # Take every other row
-        for h, s, v in row[::2]:  # Take every other pixel in each row
+    # Sample every other pixel
+    for row in hsv_img[::2]:
+        for h, s, v in row[::2]:
             if (h, s, v) != (0, 0, 0):
                 hsv_json.append({"h": int(h), "s": int(s), "v": int(v)})
 
@@ -101,12 +99,11 @@ def process_image(image_name, img):
     return hsv_filename
 
 
-def mask_image_from_path(image_data, output_path="input_image_with_mask.png"):
+def mask_image(image_data, output_path="input_image_with_mask.png"):
     print("\nMasking image...")
     model = create_model("Unet_2020-10-30")
     model.eval()
 
-    # Convert image data to numpy array
     nparr = np.frombuffer(image_data, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -129,7 +126,7 @@ def mask_image_from_path(image_data, output_path="input_image_with_mask.png"):
     return output_path
 
 
-def process_test_images_from_paths(image_paths):
+def process_test_images(image_paths):
     print("\nProcessing test images...")
     masked_image_paths = []
     for image_path in image_paths:
@@ -137,7 +134,7 @@ def process_test_images_from_paths(image_paths):
             img = cv2.imread(image_path)
             if img is not None:
                 image_name = os.path.splitext(os.path.basename(image_path))[0]
-                hsv_file = process_image(image_name, img)
+                hsv_file = process_hsv_data(image_name, img)
                 masked_image_paths.append(hsv_file)
                 print(f"Processed test image: {image_path}")
             else:
@@ -150,20 +147,21 @@ def process_test_images_from_paths(image_paths):
 def process_input_image(image_data):
     print("\nProcessing input image...")
     try:
-        masked_path = mask_image_from_path(image_data)
+        masked_path = mask_image(image_data)
         img = cv2.imread(masked_path)
 
         if img is not None:
             image_name = "input_image"
-            hsv_file = process_image(image_name, img)
+            hsv_file = process_hsv_data(image_name, img)
             print(f"Input image processed: {hsv_file}")
             return hsv_file
+        return None
     except Exception as e:
         print(f"Error processing input image: {str(e)}")
         return None
 
 
-def get_clusters_from_gpt(masked_image_path):
+def get_clusters(masked_image_path):
     print(f"\nGenerating clusters for: {masked_image_path}")
     clustering_prompt = """Please read this JSON File data. It contains h,s,v values associated with pixels in an image. Please cluster using python, sklearn k-means, with n=5 clusters. Use only the h values of the hsv when clustering, as this is the hue value. Once you cluster based on h, count the pixels in the cluster and compute the percentage of the image the cluster represents. Average the s and v values for all the clusters and use that as the s and v value. Compute the mean h value and the averaged s and v value to create a json. Format it as "cluster_[number]" and "h","s","v", and "percent". Do not include the cluster if it is less than 5% of the image. Return the json format like this, no other information or commentary."""
 
@@ -183,7 +181,7 @@ def get_clusters_from_gpt(masked_image_path):
         return None
 
 
-def combine_json(json_files):
+def combine_json_files(json_files):
     print("\nCombining JSON files...")
     combined_data = {}
 
@@ -209,7 +207,7 @@ def combine_json(json_files):
         return None
 
 
-def get_matches_from_gpt(combined_file):
+def get_matches(combined_file):
     print(f"\nProcessing matches from {combined_file}")
     color_comparison_prompt = """Please read this JSON File data, which contains clusters of colors from related images. Each cluster is defined by hue, saturation, and value color as well as an associated percent that the cluster represents in the associated image. The image I want to relate is labeled "test" in the data. I want to relate this image to the images labeled "data". Use Euclidean distance to find the images with the smallest distance. Use the Hue value when relating clusters, and use a geometric mean of the percent of the two clusters when comparing to weight its distance. Please give me the 5 closest images to "test" using the HSV and percent for cluster similarity. Format this as a JSON dictionary with keys 'match1' through 'match5' and values being the image names."""
 
@@ -221,19 +219,19 @@ def get_matches_from_gpt(combined_file):
             )
     except Exception as e:
         print(f"Error reading combined file: {str(e)}")
-        return get_fallback_response()
+        return get_fallback_matches()
 
     response = get_chatgpt_response(color_comparison_prompt, json_data)
     print(f"GPT response: {response}")
 
     if response == "error" or not isinstance(response, dict):
         print(f"Invalid response format: {response}")
-        return get_fallback_response()
+        return get_fallback_matches()
 
     return response
 
 
-def get_fallback_response():
+def get_fallback_matches():
     return {
         "match1": "No match found",
         "match2": "No match found",
@@ -243,18 +241,21 @@ def get_fallback_response():
     }
 
 
-def main(test_images: list, image_data: bytes):
+def process_images(test_images: list, image_data: bytes):
+    """
+    Process input image against test images and return matches
+    """
     print("\nStarting image processing pipeline...")
 
     print("Processing test images...")
-    masked_image_paths = process_test_images_from_paths(test_images)
+    masked_image_paths = process_test_images(test_images)
     print(f"Processed {len(masked_image_paths)} test images")
 
     print("\nProcessing input image...")
     input_hsv = process_input_image(image_data)
     if not input_hsv:
         print("Failed to process input image")
-        return get_fallback_response()
+        return get_fallback_matches()
     print(f"Input HSV file: {input_hsv}")
 
     print("\nGenerating clusters...")
@@ -262,24 +263,24 @@ def main(test_images: list, image_data: bytes):
     cluster_files = []
     for file_path in all_files:
         print(f"Clustering {file_path}...")
-        cluster_file = get_clusters_from_gpt(file_path)
+        cluster_file = get_clusters(file_path)
         if cluster_file:
             cluster_files.append(cluster_file)
 
     if not cluster_files:
         print("No cluster files generated")
-        return get_fallback_response()
+        return get_fallback_matches()
     print(f"Generated {len(cluster_files)} cluster files")
 
     print("\nCombining JSON files...")
-    combined_file = combine_json(cluster_files)
+    combined_file = combine_json_files(cluster_files)
     if not combined_file:
         print("Failed to combine JSON files")
-        return get_fallback_response()
+        return get_fallback_matches()
     print(f"Combined file created: {combined_file}")
 
     print("\nGetting matches...")
-    matches = get_matches_from_gpt(combined_file)
+    matches = get_matches(combined_file)
     print(f"Final matches: {matches}")
 
     return matches
@@ -289,5 +290,5 @@ if __name__ == "__main__":
     test_images = [f"./test_images/image_with_mask_{i}.png" for i in range(1, 16)]
     with open("test_image.jpg", "rb") as f:
         image_data = f.read()
-    matches = main(test_images, image_data)
+    matches = process_images(test_images, image_data)
     print(json.dumps(matches, indent=4))
